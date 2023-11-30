@@ -1,0 +1,112 @@
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.manifold import TSNE
+import plotly.express as ex
+
+
+# 读取 Excel 文件并指定 sheet 名称
+ds = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="Sheet3")
+print(ds)
+
+dataset = ds.copy()
+
+# 将分类特征转换为数字编码
+categ_features = ["materials", "contain H", "contain C", "contain N", "contain P", "contain O",
+                  "contain S", "contain Te", "contain Se", "contain F", "contain Cl", "contain Br", "contain I",
+                  "metal number", "metal valence", "metal proportion", "s orbital of metal element",
+                  "p orbital of metal element", "d orbital of metal element", "f orbital of metal element",
+                  "electronegativity of metal", "predicted formation energy", "nonmetal number",
+                  "nonmetal valence", "nonmetal proportion", "electronegativity of nonmetal",
+                  "p orbital of nonmetal element", "standard electrode potential", "Fermi level", "band gap",
+                  "shape", "concentration", "size", "Gram staining", "bacterial strain", "response time", "detection method",
+                  "MIC"]
+for feature in categ_features:
+    dataset[feature] = dataset[feature].astype('category').cat.codes
+
+ds_array = dataset.to_numpy()
+
+material_stat = ds['materials'].describe()
+material_dict = dict()
+
+for key in ds['materials'].unique():
+    sup = len(ds[ds['materials'] == key].index)
+    material_dict[key] = sup
+
+# 绘制饼图显示材料类型分布
+pie_mat = ex.pie(values=material_dict.values(), names=material_dict.keys())
+pie_mat.show()
+# 准备数据用于聚类
+x = dataset.drop('MIC', axis=1)
+
+# 使用 KMeans 进行聚类
+kmeans = KMeans(n_clusters=2)
+kmeans.fit(x)
+labels = kmeans.labels_
+label_ser = pd.Series(labels, index=dataset.index, name='knn_label')
+# dataset = dataset.merge(label_ser, right_index=True, left_index=True)
+centroids = kmeans.cluster_centers_
+centr_0 = centroids[0]
+centr_1 = centroids[1]
+centr_ds = pd.DataFrame(centroids)
+
+
+
+# 准备数据用于 t-SNE 降维
+target = "MIC"
+all_docs_number = []
+split_ds = None
+quantile_values = [np.quantile(dataset["MIC"].tolist(), quant / 10) for quant in range(5)]
+for number in range(len(quantile_values)):
+    if number < len(quantile_values) - 1:
+        left_border = quantile_values[number]
+        right_border = quantile_values[number + 1]
+        doc_bin = dataset.loc[dataset[target] >= left_border].copy()
+        doc_bin.drop(doc_bin[doc_bin[target] >= right_border].index, inplace=True)
+    else:
+        left_border = quantile_values[number]
+        doc_bin = dataset[dataset[target] >= left_border]
+    doc_bin.loc[:, target] = number
+    all_docs_number.append(doc_bin[target].count())
+    if split_ds is None:
+        split_ds = pd.DataFrame(doc_bin, columns=dataset.columns)
+    else:
+        split_ds = pd.concat([split_ds, doc_bin])
+
+split_ds.rename(columns={"MIC": "Minimum inhibitory concentration"}, inplace=True)
+
+# 使用 t-SNE 进行降维
+numeric_columns = dataset.select_dtypes(include=[np.number]).columns
+x = dataset[numeric_columns].drop('MIC', axis=1)
+tsne = TSNE(perplexity=50, learning_rate=200, random_state=258)  # 添加 random_state 以保证结果的可重复性
+dec_ds = tsne.fit_transform(x)
+dec_ds = pd.DataFrame(dec_ds, columns=['component_1', 'component_2'])
+
+# 绘制 t-SNE 散点图
+ax = sns.scatterplot(x=dec_ds['component_1'], y=dec_ds['component_2'], hue=ds['materials'], palette='rainbow')
+plt.title('t-SNE Visualization of Materials')
+# 获取图例
+legend = ax.legend(loc='right', ncol=2)
+# 设置图例可拖动
+legend.set_draggable(True)
+plt.show()
+
+# 绘制 t-SNE 散点图（考虑 concentration 列）
+ax = sns.scatterplot(x=dec_ds['component_1'], y=dec_ds['component_2'], hue=split_ds['concentration'], palette='bright')
+plt.title('t-SNE Visualization with Concentration')
+# 获取图例
+legend = ax.legend(loc='right')
+# 设置图例可拖动
+legend.set_draggable(True)
+plt.show()
+
+# 绘制 t-SNE 散点图（考虑 size 列）
+ax = sns.scatterplot(x=dec_ds['component_1'], y=dec_ds['component_2'], hue=split_ds['size'], palette='bright')
+plt.title('t-SNE Visualization with Size')
+# 获取图例
+legend = ax.legend(loc='right')
+# 设置图例可拖动
+legend.set_draggable(True)
+plt.show()
