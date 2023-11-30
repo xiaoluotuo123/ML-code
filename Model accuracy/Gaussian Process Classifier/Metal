@@ -1,0 +1,51 @@
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict
+import pandas as pd
+
+# 读取数据集
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="metal", index_col=0)
+print(data)
+
+# 导入特征和标签
+X = data.loc[1:661, 'metal number':'detection method'].values
+Y = data.loc[1:661, 'MIC'].values
+
+# 先将数据划分为训练和测试样本
+train_x, test_x, train_y, test_y = train_test_split(X, Y, test_size=0.2, random_state=258)
+
+# 模型训练与预测
+model = GaussianProcessClassifier()
+model.fit(train_x, train_y)
+y_pred_train = model.predict(train_x)
+y_pred_test = model.predict(test_x)
+
+# 计算训练集和测试集的准确率
+train_accuracy = accuracy_score(train_y, y_pred_train)
+test_accuracy = accuracy_score(test_y, y_pred_test)
+print("训练集准确率：", train_accuracy)
+print("测试集准确率：", test_accuracy)
+
+# 对数据集进行10倍交叉验证并计算准确率和分类报告
+cv_scores = cross_val_score(model, X, Y, cv=10)
+print("交叉验证准确率：", cv_scores.mean())
+y_pred_cv = cross_val_predict(model, X, Y, cv=10)
+cv_classification_report = classification_report(Y, y_pred_cv)
+print("交叉验证分类报告：")
+print(cv_classification_report)
+
+# 计算训练集和测试集的准确率（10倍交叉验证）
+train_cv_scores = cross_val_score(model, train_x, train_y, cv=10)
+test_cv_scores = cross_val_score(model, test_x, test_y, cv=10)
+print("训练集准确率（10倍交叉验证）：", train_cv_scores.mean())
+print("测试集准确率（10倍交叉验证）：", test_cv_scores.mean())
+
+# 计算训练集和测试集的准确率（10倍交叉验证）的分类报告
+train_cv_pred = cross_val_predict(model, train_x, train_y, cv=10)
+test_cv_pred = cross_val_predict(model, test_x, test_y, cv=10)
+train_classification_report = classification_report(train_y, train_cv_pred)
+test_classification_report = classification_report(test_y, test_cv_pred)
+print("训练集准确率（10倍交叉验证）的分类报告：")
+print(train_classification_report)
+print("测试集准确率（10倍交叉验证）的分类报告：")
+print(test_classification_report)
