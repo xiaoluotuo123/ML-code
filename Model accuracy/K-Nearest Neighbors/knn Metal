@@ -1,0 +1,99 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn import metrics
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.neighbors import KNeighborsClassifier
+
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="metal", index_col=0)
+print(data)
+
+
+X = data.loc[1:661, 'metal number':'detection method'].values
+Y = data.loc[1:661, 'MIC'].values
+# 先将数据划分为训练和测试样本
+train_x, test_x, train_y, test_y =\
+    train_test_split(X, Y, test_size=0.2, random_state=258) # random_state是为了保留种子，保证每次跑出来的数都一样
+
+
+X_train = (train_x)
+X_test = (test_x)
+
+#模型训练与预测
+model = KNeighborsClassifier(n_neighbors=8)
+model.fit(X_train, train_y)
+y_pred = model.predict(X_test)
+
+# 计算训练集和测试集的准确率
+train_scores = cross_val_score(model, train_x, train_y, cv=10)
+test_scores = cross_val_score(model, test_x, test_y, cv=10)
+# 输出训练集和测试集的准确率
+print("训练集准确率：", train_scores.mean())
+print("测试集准确率：", test_scores.mean())
+
+# 进行10倍交叉验证并计算准确率
+cv_scores = cross_val_score(model, X, Y, cv=10)
+mean_accuracy = np.mean(cv_scores)
+print('10倍交叉验证准确率为：%.2f%%' % (mean_accuracy * 100))
+
+#选择模型
+knn = KNeighborsClassifier(n_neighbors=8)
+knn.fit(X_train, train_y)
+y_pred = knn.predict(X_test)
+
+#模型评价
+from sklearn.metrics import classification_report, confusion_matrix
+print(confusion_matrix(test_y, y_pred))
+print(classification_report(test_y, y_pred))
+
+
+
+#绘制学习曲线
+from sklearn.metrics import accuracy_score
+
+score = []
+for K in range(40):
+    K_value = K + 1
+    knn = KNeighborsClassifier(n_neighbors=K_value, weights='uniform', algorithm='auto')
+    knn.fit(X_train, train_y)
+    y_pred = knn.predict(X_test)
+    score.append(round(accuracy_score(test_y, y_pred) * 100, 2))
+
+plt.figure(figsize=(12, 6))
+plt.plot(range(1, 41), score, color='red', linestyle='dashed', marker='o',
+         markerfacecolor='blue', markersize=10)
+plt.title('The Learning curve')
+plt.xlabel('K Value')
+plt.ylabel('Score')
+
+
+#带误差的学习曲线
+from sklearn import metrics
+
+Ks = 10
+mean_acc = np.zeros((Ks - 1))
+std_acc = np.zeros((Ks - 1))
+ConfustionMx = []
+for n in range(1, Ks):
+    # 模型训练和预测
+    neigh = KNeighborsClassifier(n_neighbors=n).fit(X_train, train_y)
+    yhat = neigh.predict(X_test)
+    mean_acc[n - 1] = metrics.accuracy_score(test_y, yhat)
+    std_acc[n - 1] = np.std(yhat == test_y) / np.sqrt(yhat.shape[0])
+
+# 绘图
+plt.figure(figsize=(12, 6))
+plt.plot(range(1, Ks), mean_acc, 'g')
+plt.fill_between(range(1, Ks), mean_acc - 1 * std_acc, mean_acc + 1 * std_acc, alpha=0.10)
+plt.legend(('Accuracy ', '+/- 3xstd'))
+plt.ylabel('Accuracy ')
+plt.xlabel('Number of Nabors (K)')
+plt.tight_layout()
+plt.show()
+# print( "The best accuracy was with",
+mean_acc.max(), "with k=",
+mean_acc.argmax() + 1
+
+# 预测数据结果
+predict_y = model.predict(test_x)
