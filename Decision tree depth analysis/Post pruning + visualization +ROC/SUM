@@ -1,0 +1,114 @@
+import pandas as pd
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve, classification_report
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+import graphviz
+from sklearn import tree
+
+#  读取数据
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="Sheet3all", index_col=0)
+print(data)
+
+# 提取特征和目标变量
+X_discrete = data.loc[1:1482, ['metal number', 'metal valence', 'metal proportion', 's orbital of metal element',
+                               'p orbital of metal element', 'd orbital of metal element', 'f orbital of metal element',
+                               'nonmetal number', 'nonmetal valence', 'nonmetal proportion', 'p orbital of nonmetal element',
+                               'shape', 'concentration', 'size', 'Gram staining', 'bacterial strain', 'response time',
+                               'detection method']].astype(str).values
+X_continuous = data.loc[1:1482, ['electronegativity of metal', 'predicted formation energy',
+                                 'electronegativity of nonmetal', 'standard electrode potential', 'Fermi level',
+                                 'bandgap']].values
+Y = data.loc[1:1482, 'MIC'].values
+
+# 合并离散变量和连续变量
+X = pd.concat([pd.DataFrame(X_discrete), pd.DataFrame(X_continuous)], axis=1).values
+
+# 划分训练集和测试集
+train_x, test_x, train_y, test_y = train_test_split(X, Y, test_size=0.2, random_state=258)
+
+# 设置决策树参数
+parameters = {
+    'splitter': 'best',
+    'criterion': "gini",
+    "max_depth": 10,
+    'min_samples_leaf': 1,
+    "min_samples_split": 4,
+}
+
+feature_names = ['metal number', 'metal valence', 'metal proportion', 's orbital of metal element',
+                               'p orbital of metal element', 'd orbital of metal element', 'f orbital of metal element',
+                               'nonmetal number', 'nonmetal valence', 'nonmetal proportion', 'p orbital of nonmetal element',
+                               'shape', 'concentration', 'size', 'Gram staining', 'bacterial strain', 'response time',
+                               'detection method', 'electronegativity of metal', 'predicted formation energy',
+                                 'electronegativity of nonmetal', 'standard electrode potential', 'Fermi level',
+                                 'bandgap']
+target_names = data['MIC'].unique().tolist()
+
+class CustomDecisionTreeClassifier(DecisionTreeClassifier):
+    def _post_prune(self, node_id, depth=0):
+        left_child = self.tree_.children_left[node_id]
+        right_child = self.tree_.children_right[node_id]
+
+        # Check if the node is a leaf
+        if left_child == tree._tree.TREE_LEAF:
+            return
+
+        # Recursively prune the right subtree
+        if right_child != tree._tree.TREE_LEAF:
+            self._post_prune(right_child, depth=depth + 1)
+
+        # Prune the left child if impurity condition is met and not the root node
+        if depth >= 1 and self.tree_.impurity[node_id] <= 0.10:
+            self.tree_.children_left[node_id] = tree._tree.TREE_LEAF
+
+        # Recursively prune the left subtree
+        self._post_prune(left_child, depth=depth + 1)
+
+    def fit(self, X, y):
+        super().fit(X, y)
+        self._post_prune(0)  # 从根节点开始进行后剪枝
+
+
+# 使用 CustomDecisionTreeClassifier 进行后剪枝决策树构建
+clf = CustomDecisionTreeClassifier(**parameters)
+clf.fit(train_x, train_y)
+
+
+# 测试集准确率
+y_pred = clf.predict(test_x)
+accuracy = accuracy_score(test_y, y_pred)
+print("测试集准确率：", accuracy)
+
+# 计算训练集和测试集的准确率（10倍交叉验证）
+test_cv_scores = cross_val_score(model, test_x, test_y, cv=10)
+print("测试集准确率（10倍交叉验证）：", test_cv_scores.mean())
+test_cv_pred = cross_val_predict(model, test_x, test_y, cv=10)
+test_classification_report = classification_report(test_y, test_cv_pred)
+print("测试集准确率（10倍交叉验证）的分类报告：")
+print(test_classification_report)
+
+auc = roc_auc_score(test_y, clf.predict_proba(test_x)[:, 1])
+fpr, tpr, thresholds = roc_curve(test_y, clf.predict_proba(test_x)[:, 1])
+plt.plot(fpr, tpr, color='darkorange', label='ROC curve (area = %0.2f)' % auc)
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver operating characteristic example')
+plt.legend(loc="lower right")
+plt.savefig('suhan.jpg', dpi=600)
+plt.show()
+
+# 绘制决策树
+dot_data = tree.export_graphviz(clf, out_file=None,
+                                feature_names=feature_names,
+                                class_names=None,
+                                filled=True,
+                                special_characters=True,
+                                node_ids=True)
+
+graph = graphviz.Source(dot_data)
+graph.format = 'pdf'
+graph.render('tree_visualization', view=True)
