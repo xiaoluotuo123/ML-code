@@ -1,0 +1,66 @@
+import pandas as pd
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict
+import numpy as np
+# 读取数据
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="Sheet3all", index_col=0)
+print(data)
+
+# 提取特征和目标变量
+X_discrete = data.loc[1:1482, ['metal number', 'metal valence', 'metal proportion', 's orbital of metal element',
+                               'p orbital of metal element', 'd orbital of metal element', 'f orbital of metal element',
+                               'nonmetal number', 'nonmetal valence', 'nonmetal proportion', 'p orbital of nonmetal element',
+                               'shape', 'concentration', 'size', 'Gram staining', 'bacterial strain', 'response time',
+                               'detection method']].astype(str).values
+X_continuous = data.loc[1:1491, ['electronegativity of metal',  'predicted formation energy',
+                                 'electronegativity of nonmetal', 'standard electrode potential', 'Fermi level',
+                                 'bandgap', ]].values
+Y = data.loc[1:1482, 'MIC'].values
+
+# 合并离散变量和连续变量
+X = pd.concat([pd.DataFrame(X_discrete), pd.DataFrame(X_continuous)], axis=1).values
+
+# 划分训练集和测试集
+train_x, test_x, train_y, test_y = train_test_split(X, Y, test_size=0.2, random_state=258)
+
+# 创建决策树分类器
+clf = DecisionTreeClassifier()
+
+# 构建完整的决策树模型
+clf = DecisionTreeClassifier(criterion="gini", max_depth=10, min_samples_leaf=1, min_samples_split=4, splitter='best')
+clf.fit(train_x, train_y)
+
+# 3. 模型训练与预测
+model = DecisionTreeClassifier()
+model.fit(train_x, train_y)
+y_pred_train = model.predict(train_x)
+y_pred_test = model.predict(test_x)
+
+
+# 预测数据结果
+predict_y = model.predict(test_x)
+# 预测训练集数据结果
+train_predict_y = model.predict(train_x)
+
+# 计算训练集和测试集的准确率
+train_scores = cross_val_score(model, train_x, train_y, cv=10)
+test_scores = cross_val_score(model, test_x, test_y, cv=10)
+# 输出训练集和测试集的准确率
+print("训练集准确率：", train_scores.mean())
+print("测试集准确率：", test_scores.mean())
+
+
+#  计算训练集和测试集的准确率（10倍交叉验证）
+test_cv_scores = cross_val_score(model, test_x, test_y, cv=10)
+print("测试集准确率（10倍交叉验证）：", test_cv_scores.mean())
+test_cv_pred = cross_val_predict(model, test_x, test_y, cv=10)
+test_classification_report = classification_report(test_y, test_cv_pred)
+print("测试集准确率（10倍交叉验证）的分类报告：")
+print(test_classification_report)
+
+
+# 计算classification_report
+report = classification_report(test_y, predict_y)
+# 打印classification_report
+print(report)
