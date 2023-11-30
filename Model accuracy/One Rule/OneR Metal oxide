@@ -1,0 +1,101 @@
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict
+from sklearn.dummy import DummyClassifier
+from sklearn.dummy import DummyClassifier
+import pandas as pd
+import numpy as np
+
+# 读取数据
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="metal oxide", index_col=0)
+print(data)
+
+# 导入数据集
+X = data.loc[1:641, 'metal number':'detection method'].values
+Y = data.loc[1:641, 'MIC'].values
+
+# 获取数据条数和特征数量
+n_samples, n_features = X.shape
+print(n_samples, n_features)
+
+# 设置阈值
+attribute_means = X.mean()
+# 打散特征值
+X_d = np.array(X >= attribute_means, dtype='int')
+
+# 创建函数
+from collections import defaultdict
+from operator import itemgetter
+
+# 训练特征值
+def train_feature_value(X, y_true, feature_index, value):
+    class_counts = defaultdict(int)
+    for sample, Y in zip(X, y_true):
+        if sample[feature_index] == value:
+            class_counts[Y] += 1
+    sorted_class_counts = sorted(class_counts.items(), key=itemgetter(1), reverse=True)
+    most_frequent_class = sorted_class_counts[0][0]
+    incorrect_predictions = [class_count for class_value, class_count in class_counts.items() if class_value != most_frequent_class]
+    error = sum(incorrect_predictions)
+    return most_frequent_class, error
+
+# 训练特征项
+def train_on_feature(X, y_true, feature_index):
+    values = set(X[:, feature_index])
+    predictors = {}
+    errors = []
+    for current_value in values:
+        most_frequent_class, error = train_feature_value(X, y_true, feature_index, current_value)
+        predictors[current_value] = most_frequent_class
+        errors.append(error)
+    total_error = sum(errors)
+    return predictors, total_error
+
+# 划分数据集
+Xd_train, Xd_test, y_train, y_test = train_test_split(X_d, Y, random_state=258)
+
+# 计算错误率
+all_predictors = {}
+errors = {}
+for feature_index in range(Xd_train.shape[1]):
+    predictors, total_error = train_on_feature(Xd_train, y_train, feature_index)
+    all_predictors[feature_index] = predictors
+    errors[feature_index] = total_error
+best_feature, best_error = sorted(errors.items(), key=itemgetter(1))[0]
+
+# 创建模型
+model = {'feature': best_feature, 'predictor': all_predictors[best_feature]}
+
+# 验证测试集
+y_predicted = []
+for sample in Xd_test:
+    variable = model['feature']
+    predictor = model['predictor']
+    prediction = predictor[int(sample[variable])]
+    y_predicted.append(prediction)
+
+# 计算准确率
+accuracy = accuracy_score(y_test, y_predicted) * 100
+print("测试集的准确率是 {:.1f}%".format(accuracy))
+
+# 计算训练集的准确率
+y_train_predicted = []
+for sample in Xd_train:
+    variable = model['feature']
+    predictor = model['predictor']
+    prediction = predictor[int(sample[variable])]
+    y_train_predicted.append(prediction)
+train_accuracy = accuracy_score(y_train, y_train_predicted) * 100
+print("训练集的准确率是 {:.1f}%".format(train_accuracy))
+
+# 进行10倍交叉验证
+cv_scores = cross_val_score(DummyClassifier(), X_d, Y, cv=10)
+cv_accuracy = np.mean(cv_scores) * 100
+print("数据集的10倍交叉验证准确率是 {:.1f}%".format(cv_accuracy))
+
+# 输出报告
+print(classification_report(y_test, y_predicted))
+
+# 进行数据集的10倍交叉验证并输出报告
+print("数据集10倍交叉验证报告：")
+cv_predicted = cross_val_predict(DummyClassifier(), X_d, Y, cv=10)
+print(classification_report(Y, cv_predicted))
