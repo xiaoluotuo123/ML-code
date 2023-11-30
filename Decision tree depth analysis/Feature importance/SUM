@@ -1,0 +1,108 @@
+import pandas as pd
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+import matplotlib.pyplot as plt
+import graphviz
+from sklearn import tree
+import seaborn as sns
+import numpy as np
+# 读取数据
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="Sheet3all", index_col=0)
+print(data)
+
+# 提取特征和目标变量
+X_discrete = data.loc[1:1482, ['metal number', 'metal valence', 'metal proportion', 's orbital of metal element',
+                               'p orbital of metal element', 'd orbital of metal element', 'f orbital of metal element',
+                               'nonmetal number', 'nonmetal valence', 'nonmetal proportion', 'p orbital of nonmetal element',
+                               'shape', 'concentration', 'size', 'Gram staining', 'bacterial strain', 'response time',
+                               'detection method']].astype(str).values
+X_continuous = data.loc[1:1482, ['electronegativity of metal', 'predicted formation energy',
+                                 'electronegativity of nonmetal', 'standard electrode potential', 'Fermi level',
+                                 'bandgap']].values
+Y = data.loc[1:1482, 'MIC'].values
+
+# 合并离散变量和连续变量
+X = pd.concat([pd.DataFrame(X_discrete), pd.DataFrame(X_continuous)], axis=1).values
+
+
+
+# 设置决策树参数
+parameters = {
+    'splitter': 'best',
+    'criterion': "gini",
+    "max_depth": 10,
+    'min_samples_leaf': 1,
+    "min_samples_split": 4,
+}
+
+
+feature_names = ['metal number', 'metal valence', 'metal proportion', 's orbital of metal element',
+                               'p orbital of metal element', 'd orbital of metal element', 'f orbital of metal element',
+                               'nonmetal number', 'nonmetal valence', 'nonmetal proportion', 'p orbital of nonmetal element',
+                               'shape', 'concentration', 'size', 'Gram staining', 'bacterial strain', 'response time',
+                               'detection method', 'electronegativity of metal', 'predicted formation energy',
+                                 'electronegativity of nonmetal', 'standard electrode potential', 'Fermi level',
+                                 'bandgap']
+target_names = data['MIC'].unique().tolist()
+
+# 划分训练集和测试集
+train_x, test_x, train_y, test_y = train_test_split(X, Y, test_size=0.2, random_state=258)
+
+class CustomDecisionTreeClassifier(DecisionTreeClassifier):
+    def _post_prune(self, node_id, depth=0):
+        left_child = self.tree_.children_left[node_id]
+        right_child = self.tree_.children_right[node_id]
+
+        # Check if the node is a leaf
+        if left_child == tree._tree.TREE_LEAF:
+            return
+
+        # Recursively prune the right subtree
+        if right_child != tree._tree.TREE_LEAF:
+            self._post_prune(right_child, depth=depth + 1)
+
+        # Prune the left child if impurity condition is met and not the root node
+        if depth >= 1 and self.tree_.impurity[node_id] <= 0.10:
+            self.tree_.children_left[node_id] = tree._tree.TREE_LEAF
+
+        # Recursively prune the left subtree
+        self._post_prune(left_child, depth=depth + 1)
+
+    def fit(self, X, y):
+        super().fit(X, y)
+        self._post_prune(0)  # 从根节点开始进行后剪枝
+
+
+# 使用 CustomDecisionTreeClassifier 进行后剪枝决策树构建
+clf = CustomDecisionTreeClassifier(**parameters)
+clf.fit(train_x, train_y)
+
+# 获取特征重要性
+feature_importance_norm = clf.feature_importances_
+
+# 对特征重要性进行排序
+sorted_indices = feature_importance_norm.argsort()[::-1]
+sorted_importance = feature_importance_norm[sorted_indices]
+
+# 创建MinMaxScaler对象并对特征重要性进行缩放
+scaler = MinMaxScaler(feature_range=(0, 1))
+feature_importance_scaled = scaler.fit_transform(sorted_importance.reshape(-1, 1))
+
+# 打印特征重要性
+for feature, importance in zip(data.columns[:-2][sorted_indices], feature_importance_scaled.flatten()):
+    print(f"Feature '{feature}': Importance = {importance}")
+
+# 设置Seaborn的调色板
+sns.set_palette("Blues_r")
+
+# 绘制特征重要性条形图
+plt.figure(figsize=(10, 6))
+plt.bar(np.array(feature_names)[sorted_indices], feature_importance_scaled.flatten(), color=sns.color_palette("Blues_r", 12))
+plt.xlabel('特征')
+plt.ylabel('重要性')
+plt.title('特征重要性')
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
