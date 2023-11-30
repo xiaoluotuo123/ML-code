@@ -1,0 +1,44 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import accuracy_score, recall_score, classification_report
+import sklearn.svm as svm
+import numpy as np
+
+
+
+#导入数据集
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="Sheet3all", index_col=0)
+print(data)
+
+X = data.loc[1:1482, 'metal number':'detection method'].values
+Y = data.loc[1:1482, 'MIC'].values
+# 先将数据划分为训练和测试样本
+train_x, test_x, train_y, test_y =\
+    train_test_split(X, Y, test_size=0.2, random_state=258) # random_state是为了保留种子，保证每次跑出来的数都一样
+#选择模型
+model = svm.SVC(kernel="linear", decision_function_shape="ovo")
+model.set_params(max_iter=100000)
+model.fit(train_x, train_y)
+y_pred = model.predict(test_x)
+#训练
+acu_train = model.score(train_x, train_y)
+acu_test = model.score(test_x, test_y)
+y_pred = model.predict(test_x)
+recall = recall_score(test_y, y_pred, average="macro")
+
+y_pred_train = model.predict(train_x)
+y_pred_test = model.predict(test_x)
+
+#4. 计算训练集和测试集的准确率
+train_accuracy = accuracy_score(train_y, y_pred_train)
+test_accuracy = accuracy_score(test_y, y_pred_test)
+print("训练集准确率:", train_accuracy)
+print("测试集准确率:", test_accuracy)
+
+# 5. 对数据集进行10倍交叉验证并计算准确率
+cv_scores = cross_val_score(model, X, Y, cv=10)
+print("交叉验证准确率:", np.mean(cv_scores))
+
+# 6. 计算classification_report
+classification_report_cv = classification_report(Y, model.predict(X))
+print("交叉验证分类报告:\n", classification_report_cv)
