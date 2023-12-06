@@ -15,7 +15,7 @@ Y = data.loc[1:1482, 'MIC'].values
 train_x, test_x, train_y, test_y = train_test_split(X, Y, test_size=0.2, random_state=258)
 
 # 模型训练与预测
-model = LogisticRegression(multi_class='multinomial', solver='lbfgs')
+model = LogisticRegression()
 model.fit(train_x, train_y)
 y_pred_train = model.predict(train_x)
 y_pred_test = model.predict(test_x)
