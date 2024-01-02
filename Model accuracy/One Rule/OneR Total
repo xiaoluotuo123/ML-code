@@ -1,28 +1,8 @@
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict
 from sklearn.dummy import DummyClassifier
-from sklearn.dummy import DummyClassifier
 import pandas as pd
 import numpy as np
-
-# 读取数据
-data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="Sheet3all", index_col=0)
-print(data)
-
-# 导入数据集
-X = data.loc[1:1482, 'metal number':'detection method'].values
-Y = data.loc[1:1482, 'MIC'].values
-
-# 获取数据条数和特征数量
-n_samples, n_features = X.shape
-print(n_samples, n_features)
-
-# 设置阈值
-attribute_means = X.mean()
-# 打散特征值
-X_d = np.array(X >= attribute_means, dtype='int')
-
-# 创建函数
 from collections import defaultdict
 from operator import itemgetter
 
@@ -50,6 +30,23 @@ def train_on_feature(X, y_true, feature_index):
     total_error = sum(errors)
     return predictors, total_error
 
+# 读取数据
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="SUM1", index_col=0)
+print(data)
+
+# 导入数据集
+X = data.loc[1:1482, 'metal number':'detection method'].values
+Y = data.loc[1:1482, 'MIC'].values
+
+# 获取数据条数和特征数量
+n_samples, n_features = X.shape
+print(n_samples, n_features)
+
+# 设置阈值
+attribute_means = X.mean()
+# 打散特征值
+X_d = np.array(X >= attribute_means, dtype='int')
+
 # 划分数据集
 Xd_train, Xd_test, y_train, y_test = train_test_split(X_d, Y, random_state=258)
 
@@ -66,18 +63,18 @@ best_feature, best_error = sorted(errors.items(), key=itemgetter(1))[0]
 model = {'feature': best_feature, 'predictor': all_predictors[best_feature]}
 
 # 验证测试集
-y_predicted = []
+y_predicted_test = []
 for sample in Xd_test:
     variable = model['feature']
     predictor = model['predictor']
     prediction = predictor[int(sample[variable])]
-    y_predicted.append(prediction)
+    y_predicted_test.append(prediction)
 
-# 计算准确率
-accuracy = accuracy_score(y_test, y_predicted) * 100
-print("测试集的准确率是 {:.1f}%".format(accuracy))
+# 计算测试集准确率
+accuracy_test = accuracy_score(y_test, y_predicted_test) * 100
+print("测试集的准确率是 {:.1f}%".format(accuracy_test))
 
-# 计算训练集的准确率
+# 计算训练集准确率
 y_train_predicted = []
 for sample in Xd_train:
     variable = model['feature']
@@ -87,15 +84,17 @@ for sample in Xd_train:
 train_accuracy = accuracy_score(y_train, y_train_predicted) * 100
 print("训练集的准确率是 {:.1f}%".format(train_accuracy))
 
-# 进行10倍交叉验证
+# 进行10倍交叉验证并输出报告
+print("训练集10倍交叉验证报告：")
+cv_train_predicted = cross_val_predict(DummyClassifier(), X_d, Y, cv=10)
+print(classification_report(Y, cv_train_predicted))
+
+# 进行10倍交叉验证并输出报告
+print("测试集10倍交叉验证报告：")
+cv_test_predicted = cross_val_predict(DummyClassifier(), X_d, Y, cv=10)
+print(classification_report(Y, cv_test_predicted))
+
+# 进行整体数据集的10倍交叉验证
 cv_scores = cross_val_score(DummyClassifier(), X_d, Y, cv=10)
 cv_accuracy = np.mean(cv_scores) * 100
-print("数据集的10倍交叉验证准确率是 {:.1f}%".format(cv_accuracy))
-
-# 输出报告
-print(classification_report(y_test, y_predicted))
-
-# 进行数据集的10倍交叉验证并输出报告
-print("数据集10倍交叉验证报告：")
-cv_predicted = cross_val_predict(DummyClassifier(), X_d, Y, cv=10)
-print(classification_report(Y, cv_predicted))
+print("整体数据集的10倍交叉验证准确率是 {:.1f}%".format(cv_accuracy))
