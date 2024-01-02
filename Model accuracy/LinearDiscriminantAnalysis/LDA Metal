@@ -4,11 +4,11 @@ from sklearn.model_selection import train_test_split, cross_val_score, cross_val
 import pandas as pd
 
 # 读取数据集
-data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="metal", index_col=0)
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="metal1", index_col=0)
 print(data)
 
 # 导入特征和标签
-X = data.loc[1:661, 'metal number':'detection method'].values
+X = data.loc[1:661, 'd orbital of metal element':'detection method'].values
 Y = data.loc[1:661, 'MIC'].values
 
 # 先将数据划分为训练和测试样本
@@ -19,12 +19,6 @@ model = LinearDiscriminantAnalysis()
 model.fit(train_x, train_y)
 y_pred_train = model.predict(train_x)
 y_pred_test = model.predict(test_x)
-
-# 计算训练集和测试集的准确率
-train_accuracy = accuracy_score(train_y, y_pred_train)
-test_accuracy = accuracy_score(test_y, y_pred_test)
-print("训练集准确率：", train_accuracy)
-print("测试集准确率：", test_accuracy)
 
 # 对数据集进行10倍交叉验证并计算准确率和分类报告
 cv_scores = cross_val_score(model, X, Y, cv=10)
