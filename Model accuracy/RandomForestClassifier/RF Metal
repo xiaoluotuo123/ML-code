@@ -1,14 +1,14 @@
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
-from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict
+from sklearn.model_selection import GridSearchCV, train_test_split, cross_val_score, cross_val_predict
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import accuracy_score, classification_report
 import pandas as pd
 
-data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="metal", index_col=0)
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="metal1", index_col=0)
 print(data)
 
 # 导入数据集
-X = data.loc[1:661, 'metal number':'detection method'].values
+X = data.loc[1:661, 'd orbital of metal element':'detection method'].values
 Y = data.loc[1:661, 'MIC'].values
 
 # 正则化处理
@@ -18,27 +18,42 @@ X_normalized = scaler.fit_transform(X)
 # 先将数据划分为训练和测试样本
 train_x, test_x, train_y, test_y = train_test_split(X_normalized, Y, test_size=0.2, random_state=258)
 
-# 3. 模型训练与预测
-model = RandomForestClassifier()
-model.fit(train_x, train_y)
-y_pred_train = model.predict(train_x)
-y_pred_test = model.predict(test_x)
+# 定义参数网格
+param_grid = {
+    'n_estimators': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 50],
+    'max_depth': [None, 5, 6, 7, 8, 9, 10, 20, 30],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4]
+}
 
-# 4. 计算训练集和测试集的准确率（10倍交叉验证）
-train_cv_scores = cross_val_score(model, train_x, train_y, cv=10)
-test_cv_scores = cross_val_score(model, test_x, test_y, cv=10)
-print("训练集准确率（10倍交叉验证）：", train_cv_scores.mean())
-print("测试集准确率（10倍交叉验证）：", test_cv_scores.mean())
+# 创建随机森林分类器
+rf_model = RandomForestClassifier()
 
-# 5. 对数据集进行10倍交叉验证并计算准确率和总体分类报告
-cv_scores = cross_val_score(model, X_normalized, Y, cv=10)
-print("交叉验证准确率：", cv_scores.mean())
-y_pred_cv = cross_val_predict(model, X_normalized, Y, cv=10)
-cv_classification_report = classification_report(Y, y_pred_cv)
-print("交叉验证分类报告：")
-print(cv_classification_report)
+# 使用GridSearchCV进行参数搜索
+grid_search = GridSearchCV(estimator=rf_model, param_grid=param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+grid_search.fit(train_x, train_y)
 
-# 6. 模型评价
-classification_rep = classification_report(test_y, y_pred_test)
-print("模型评价：")
-print(classification_rep)
+# 输出最佳参数
+print("Best Parameters:", grid_search.best_params_)
+
+# 使用最佳参数的模型进行训练和预测
+best_rf_model = grid_search.best_estimator_
+y_pred_train = best_rf_model.predict(train_x)
+y_pred_test = best_rf_model.predict(test_x)
+
+# 输出训练集和测试集的准确率
+train_scores = cross_val_score(best_rf_model, train_x, train_y, cv=10)
+test_scores = cross_val_score(best_rf_model, test_x, test_y, cv=10)
+print("训练集准确率（10倍交叉验证）:", train_scores.mean())
+print("测试集准确率（10倍交叉验证）:", test_scores.mean())
+# 训练集和测试集的评估报告
+train_pred = cross_val_predict(best_rf_model, train_x, train_y, cv=10)
+test_pred = cross_val_predict(best_rf_model, test_x, test_y, cv=10)
+print("训练集评估报告：\n", classification_report(train_y, train_pred))
+print("测试集评估报告：\n", classification_report(test_y, test_pred))
+
+
+# 10倍交叉验证并计算准确率
+cv_scores = cross_val_score(best_rf_model, X_normalized, Y, cv=10)
+mean_accuracy = cv_scores.mean()
+print('整个数据集10倍交叉验证准确率为：%.2f%%' % (mean_accuracy * 100))
