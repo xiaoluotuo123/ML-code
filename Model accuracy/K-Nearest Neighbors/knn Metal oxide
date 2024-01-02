@@ -5,8 +5,9 @@ from sklearn import metrics
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import classification_report, confusion_matrix
 
-data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="metal oxide", index_col=0)
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="metal oxide1", index_col=0)
 print(data)
 
 
@@ -21,7 +22,7 @@ X_train = (train_x)
 X_test = (test_x)
 
 #模型训练与预测
-model = KNeighborsClassifier(n_neighbors=8)
+model = KNeighborsClassifier(n_neighbors=11)
 model.fit(X_train, train_y)
 y_pred = model.predict(X_test)
 
@@ -32,18 +33,21 @@ test_scores = cross_val_score(model, test_x, test_y, cv=10)
 print("训练集准确率：", train_scores.mean())
 print("测试集准确率：", test_scores.mean())
 
+# 输出训练集和测试集的classification report
+print("训练集分类报告：\n", classification_report(train_y, model.predict(train_x)))
+print("测试集分类报告：\n", classification_report(test_y, y_pred))
+
 # 进行10倍交叉验证并计算准确率
 cv_scores = cross_val_score(model, X, Y, cv=10)
 mean_accuracy = np.mean(cv_scores)
 print('10倍交叉验证准确率为：%.2f%%' % (mean_accuracy * 100))
 
 #选择模型
-knn = KNeighborsClassifier(n_neighbors=8)
+knn = KNeighborsClassifier(n_neighbors=11)
 knn.fit(X_train, train_y)
 y_pred = knn.predict(X_test)
 
 #模型评价
-from sklearn.metrics import classification_report, confusion_matrix
 print(confusion_matrix(test_y, y_pred))
 print(classification_report(test_y, y_pred))
 
