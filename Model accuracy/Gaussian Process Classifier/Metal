@@ -20,12 +20,6 @@ model.fit(train_x, train_y)
 y_pred_train = model.predict(train_x)
 y_pred_test = model.predict(test_x)
 
-# 计算训练集和测试集的准确率
-train_accuracy = accuracy_score(train_y, y_pred_train)
-test_accuracy = accuracy_score(test_y, y_pred_test)
-print("训练集准确率：", train_accuracy)
-print("测试集准确率：", test_accuracy)
-
 # 对数据集进行10倍交叉验证并计算准确率和分类报告
 cv_scores = cross_val_score(model, X, Y, cv=10)
 print("交叉验证准确率：", cv_scores.mean())
