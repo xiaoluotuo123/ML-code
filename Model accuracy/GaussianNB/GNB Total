@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split, cross_val_score, cross_val
 import pandas as pd
 
 # 读取数据集
-data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="Sheet3all", index_col=0)
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="SUM1", index_col=0)
 print(data)
 
 # 导入特征和标签
@@ -15,7 +15,7 @@ Y = data.loc[1:1482, 'MIC'].values
 train_x, test_x, train_y, test_y = train_test_split(X, Y, test_size=0.2, random_state=258)
 
 # 创建朴素贝叶斯模型
-model = GaussianNB()
+model = GaussianNB(var_smoothing=1e-9)
 
 # 模型训练和预测
 model.fit(train_x, train_y)
