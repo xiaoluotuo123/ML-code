@@ -1,0 +1,40 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+
+data = pd.read_excel(r"D:桌面/shujukuE.xlsx", sheet_name="SUM1", index_col=0)
+print(data)
+
+X = data.loc[1:1482, 'metal number':'detection method'].values
+Y = data.loc[1:1482, 'MIC'].values
+
+# 先将数据划分为训练和测试样本
+train_x, test_x, train_y, test_y = train_test_split(X, Y, test_size=0.2, random_state=258)
+
+# 创建并训练逻辑回归模型
+model = LogisticRegression()
+model.fit(train_x, train_y)
+
+# 预测数据结果
+predict_y = model.predict(test_x)
+# 预测训练集数据结果
+train_predict_y = model.predict(train_x)
+
+# 计算训练集和测试集的准确率
+train_scores = cross_val_score(model, train_x, train_y, cv=10)
+test_scores = cross_val_score(model, test_x, test_y, cv=10)
+# 输出训练集和测试集的准确率
+print("训练集准确率：", train_scores.mean())
+print("测试集准确率：", test_scores.mean())
+
+# 输出训练集和测试集的classification report
+print("训练集分类报告：\n", classification_report(train_y, model.predict(train_x)))
+print("测试集分类报告：\n", classification_report(test_y, predict_y))
+
+# 进行10倍交叉验证并计算准确率
+cv_scores = cross_val_score(model, X, Y, cv=10)
+mean_accuracy = np.mean(cv_scores)
+print('10倍交叉验证准确率为：%.2f%%' % (mean_accuracy * 100))
